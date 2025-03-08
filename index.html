@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego de Conceptos Económicos</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              DEFAULT: '#6366f1',
+              foreground: '#ffffff',
+            },
+            secondary: {
+              DEFAULT: '#f3f4f6',
+              foreground: '#1f2937',
+            },
+            muted: {
+              DEFAULT: '#f3f4f6',
+              foreground: '#6b7280',
+            },
+            accent: {
+              DEFAULT: '#ede9fe',
+              foreground: '#6366f1',
+            },
+          },
+          keyframes: {
+            pulse: {
+              '0%, 100%': { opacity: 1 },
+              '50%': { opacity: 0.8 },
+            }
+          },
+          animation: {
+            pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Estilos adicionales */
+    .card {
+      perspective: 1000px;
+      transition: transform 0.6s;
+    }
+    
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      transition: transform 0.6s;
+      transform-style: preserve-3d;
+    }
+    
+    .card.flipped .card-inner {
+      transform: rotateY(180deg);
+    }
+    
+    .card-front, .card-back {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .card-front {
+      background: linear-gradient(to bottom right, #6366f1, #a855f7);
+      color: white;
+    }
+    
+    .card-back {
+      transform: rotateY(180deg);
+    }
+    
+    .matched {
+      animation: pulse 2s infinite;
+      box-shadow: 0 0 0 4px #22c55e;
+    }
+    
+    .dialog-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+    }
+    
+    .dialog-content {
+      background: linear-gradient(to bottom right, #eef2ff, #f5f3ff);
+      border: 2px solid #c7d2fe;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      max-width: 28rem;
+      width: 90%;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 p-4 md:p-8">
+  <div class="max-w-5xl mx-auto">
+    <div class="text-center mb-8">
+      <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
+        Juego de Conceptos Económicos
+      </h1>
+      <p class="text-gray-600 max-w-2xl mx-auto">
+        Encuentra las parejas entre conceptos económicos y sus definiciones. ¡Pon a prueba tus conocimientos!
+      </p>
+    </div>
+    
+    <div class="bg-white rounded-2xl shadow-xl p-6 md:p-8">
+      <div id="game-board" class="flex flex-col items-center">
+        <div class="flex justify-between w-full mb-4">
+          <div class="text-lg font-semibold">
+            Movimientos: <span id="moves-count">0</span>
+          </div>
+          <div class="text-lg font-semibold">
+            Parejas: <span id="pairs-count">0</span>/<span id="total-pairs">8</span>
+          </div>
+          <button id="reset-button" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 h-4 w-4"><path d="m2 9 3-3 3 3"></path><path d="M13 18H7a2 2 0 0 1-2-2V6"></path><path d="m22 15-3 3-3-3"></path><path d="M11 6h6a2 2 0 0 1 2 2v10"></path></svg>
+            Reiniciar
+          </button>
+        </div>
+        
+        <div id="cards-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+          <!-- Las tarjetas se generarán dinámicamente con JavaScript -->
+        </div>
+      </div>
+    </div>
+    
+    <div class="text-center mt-6 text-sm text-gray-500">
+      © <span id="current-year"></span> Juego Educativo de Economía
+    </div>
+  </div>
+  
+  <!-- Diálogo de juego completado -->
+  <div id="complete-dialog" class="dialog-overlay hidden">
+    <div class="dialog-content">
+      <div class="text-center">
+        <h2 class="text-2xl text-center text-indigo-700 font-bold mb-2">¡Felicidades!</h2>
+        <p class="text-center text-lg mb-4">
+          Has completado el juego en <span id="final-moves">0</span> movimientos.
+        </p>
+        
+        <div class="py-4 flex justify-center">
+          <div class="w-32 h-32 bg-yellow-100 rounded-full flex items-center justify-center animate-bounce shadow-lg">
+            <span class="text-5xl">🏆</span>
+          </div>
+        </div>
+        
+        <button id="play-again-button" class="w-full py-2 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-md">
+          Jugar de nuevo
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Diálogo de instrucciones -->
+  <div id="instructions-dialog" class="dialog-overlay">
+    <div class="dialog-content">
+      <div class="text-center">
+        <h2 class="text-2xl text-center text-indigo-700 font-bold mb-2">Instrucciones del Juego</h2>
+        
+        <div class="mt-4 bg-white/70 p-4 rounded-lg text-left">
+          <ul class="list-disc pl-5 space-y-2">
+            <li>Encuentra las parejas de conceptos económicos y sus pistas correspondientes.</li>
+            <li>Haz clic en una tarjeta para voltearla.</li>
+            <li>Solo puedes voltear dos tarjetas a la vez.</li>
+            <li>Si las dos tarjetas coinciden, permanecerán volteadas.</li>
+            <li>Si no coinciden, se voltearán de nuevo.</li>
+            <li>El juego termina cuando encuentras todas las parejas.</li>
+          </ul>
+        </div>
+        
+        <button id="start-button" class="w-full py-2 px-4 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white font-bold rounded-md mt-6">
+          Comenzar
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Establecer el año actual en el pie de página
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+    
+    // Definir los conceptos económicos y sus pistas
+    const economicConcepts = [
+      {
+        id: 1,
+        name: "Escasez",
+        clue: "¿Ocurre cuando no hay suficiente para satisfacer todas las necesidades?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/escasez.jpg-TJXmn9b347nc51Dhn4YMDQ4kh3Uydk.jpeg",
+        color: "bg-amber-100"
+      },
+      {
+        id: 2,
+        name: "Elección",
+        clue: "¿Implica tomar una decisión entre varias opciones?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/elecci%C3%B3n.jpg-mSrUP1WOopeTHsPa3QNb7HEbUkzkXc.jpeg",
+        color: "bg-cyan-100"
+      },
+      {
+        id: 3,
+        name: "Actividad Empresarial",
+        clue: "¿Es algo que hacen las empresas?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/empresa.jpg-l202bD0GJ0gWKw5OEqozD9oIx743NG.jpeg",
+        color: "bg-blue-100"
+      },
+      {
+        id: 4,
+        name: "Economía Familiar",
+        clue: "¿Es algo que hacen las familias?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/familia.jpg-ZdbRF4Mxs5iV334B3hAawBMhA5shRC.jpeg",
+        color: "bg-purple-100"
+      },
+      {
+        id: 5,
+        name: "Beneficio",
+        clue: "¿Busca obtener beneficios?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/oferta.jpg-FkpHGwh5BXszCSOU6wRtTOTZGMQBJb.jpeg",
+        color: "bg-green-100"
+      },
+      {
+        id: 6,
+        name: "Sector Público",
+        clue: "¿Recauda impuestos?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/sector%20publico.jpg-65gND3sw0UEa5oE57s0zCvKeFhZVDR.jpeg",
+        color: "bg-sky-100"
+      },
+      {
+        id: 7,
+        name: "Incentivos",
+        clue: "¿Es algo que motiva a las personas a tomar decisiones?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/incentivos.jpg-gUqKRskEJUfTvhVSJgykIQzBi5HSFd.jpeg",
+        color: "bg-teal-100"
+      },
+      {
+        id: 8,
+        name: "Comercio",
+        clue: "¿Es el intercambio de bienes y servicios entre personas o países?",
+        image: "https://hebbkx1anhila5yf.public.blob.vercel-storage.com/comercio.jpg-CjqdHnIaYnJeIXZ3dkc1BJAtY9g0re.jpeg",
+        color: "bg-yellow-100"
+      }
+    ];
+    
+    // Variables del juego
+    let cards = [];
+    let flippedCards = [];
+    let matchedPairs = 0;
+    let moves = 0;
+    let gameComplete = false;
+    
+    // Elementos del DOM
+    const cardsContainer = document.getElementById('cards-container');
+    const movesCount = document.getElementById('moves-count');
+    const pairsCount = document.getElementById('pairs-count');
+    const totalPairs = document.getElementById('total-pairs');
+    const resetButton = document.getElementById('reset-button');
+    const instructionsDialog = document.getElementById('instructions-dialog');
+    const startButton = document.getElementById('start-button');
+    const completeDialog = document.getElementById('complete-dialog');
+    const finalMoves = document.getElementById('final-moves');
+    const playAgainButton = document.getElementById('play-again-button');
+    
+    // Establecer el número total de parejas
+    totalPairs.textContent = economicConcepts.length;
+    
+    // Inicializar el juego
+    function initializeGame() {
+      // Reiniciar variables
+      cards = [];
+      flippedCards = [];
+      matchedPairs = 0;
+      moves = 0;
+      gameComplete = false;
+      
+      // Actualizar contadores
+      movesCount.textContent = moves;
+      pairsCount.textContent = matchedPairs;
+      
+      // Crear tarjetas
+      let newCards = [];
+      
+      // Crear tarjetas de conceptos y pistas
+      economicConcepts.forEach(concept => {
+        // Tarjeta de concepto
+        newCards.push({
+          id: concept.id * 2 - 1,
+          type: "concept",
+          content: concept.name,
+          conceptId: concept.id,
+          flipped: false,
+          matched: false,
+          image: concept.image,
+          color: concept.color
+        });
+        
+        // Tarjeta de pista
+        newCards.push({
+          id: concept.id * 2,
+          type: "clue",
+          content: concept.clue,
+          conceptId: concept.id,
+          flipped: false,
+          matched: false,
+          color: concept.color
+        });
+      });
+      
+      // Mezclar las tarjetas
+      cards = shuffleCards(newCards);
+      
+      // Renderizar tarjetas
+      renderCards();
+    }
+    
+    // Mezclar tarjetas
+    function shuffleCards(cardsArray) {
+      const shuffled = [...cardsArray];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    }
+    
+    // Renderizar tarjetas en el contenedor
+    function renderCards() {
+      cardsContainer.innerHTML = '';
+      
+      cards.forEach(card => {
+        const cardElement = document.createElement('div');
+        cardElement.className = `card h-48 md:h-56 cursor-pointer shadow-md hover:shadow-lg rounded-xl overflow-hidden ${card.matched ? 'matched' : ''} ${card.flipped ? 'flipped' : ''}`;
+        cardElement.dataset.id = card.id;
+        
+        const cardInner = document.createElement('div');
+        cardInner.className = 'card-inner w-full h-full';
+        
+        const cardFront = document.createElement('div');
+        cardFront.className = 'card-front p-4';
+        cardFront.innerHTML = `
+          <div class="text-2xl font-bold flex flex-col items-center">
+            <span class="text-4xl mb-2">?</span>
+            <span class="text-sm">Haz clic para voltear</span>
+          </div>
+        `;
+        
+        const cardBack = document.createElement('div');
+        cardBack.className = `card-back p-4 ${card.color || 'bg-primary'}`;
+        
+        if (card.type === "concept" && card.image) {
+          cardBack.innerHTML = `
+            <div class="text-center w-full h-full flex flex-col items-center justify-center">
+              <div class="flex flex-col items-center">
+                <div class="w-28 h-28 rounded-lg overflow-hidden mb-2 border-2 border-white shadow-md">
+                  <img 
+                    src="${card.image}" 
+                    alt="${card.content}" 
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+                <div class="font-bold text-sm mt-1 bg-white/80 px-2 py-1 rounded-md text-gray-800">${card.content}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          cardBack.innerHTML = `
+            <div class="text-center w-full h-full flex flex-col items-center justify-center">
+              <div class="text-sm bg-white/90 p-3 rounded-lg text-gray-800 font-medium shadow-sm">${card.content}</div>
+            </div>
+          `;
+        }
+        
+        cardInner.appendChild(cardFront);
+        cardInner.appendChild(cardBack);
+        cardElement.appendChild(cardInner);
+        
+        cardElement.addEventListener('click', () => handleCardClick(card.id));
+        
+        cardsContainer.appendChild(cardElement);
+      });
+    }
+    
+    // Manejar clic en tarjeta
+    function handleCardClick(id) {
+      // No permitir más de 2 cartas volteadas o hacer clic en cartas ya emparejadas
+      if (flippedCards.length >= 2 || cards.find(card => card.id === id)?.matched) {
+        return;
+      }
+      
+      // No permitir hacer clic en una carta ya volteada
+      if (flippedCards.includes(id)) {
+        return;
+      }
+      
+      // Voltear la carta seleccionada
+      cards = cards.map(card => 
+        card.id === id ? { ...card, flipped: true } : card
+      );
+      
+      // Actualizar la vista
+      const cardElement = document.querySelector(`.card[data-id="${id}"]`);
+      cardElement.classList.add('flipped');
+      
+      // Agregar la carta a las volteadas
+      flippedCards.push(id);
+      
+      // Comprobar si hay dos cartas volteadas
+      if (flippedCards.length === 2) {
+        // Incrementar contador de movimientos
+        moves++;
+        movesCount.textContent = moves;
+        
+        const firstCard = cards.find(card => card.id === flippedCards[0]);
+        const secondCard = cards.find(card => card.id === flippedCards[1]);
+        
+        // Comprobar si las cartas coinciden (mismo conceptId)
+        if (firstCard && secondCard && firstCard.conceptId === secondCard.conceptId) {
+          // Las cartas coinciden
+          setTimeout(() => {
+            // Marcar las cartas como emparejadas
+            cards = cards.map(card => 
+              card.id === flippedCards[0] || card.id === flippedCards[1]
+                ? { ...card, matched: true }
+                : card
+            );
+            
+            // Actualizar la vista
+            document.querySelector(`.card[data-id="${flippedCards[0]}"]`).classList.add('matched');
+            document.querySelector(`.card[data-id="${flippedCards[1]}"]`).classList.add('matched');
+            
+            // Reiniciar cartas volteadas
+            flippedCards = [];
+            
+            // Incrementar contador de parejas
+            matchedPairs++;
+            pairsCount.textContent = matchedPairs;
+            
+            // Comprobar si el juego ha terminado
+            if (matchedPairs === economicConcepts.length) {
+              gameComplete = true;
+              finalMoves.textContent = moves;
+              setTimeout(() => {
+                completeDialog.classList.remove('hidden');
+              }, 1000);
+            }
+          }, 1000);
+        } else {
+          // Las cartas no coinciden, voltearlas de nuevo
+          setTimeout(() => {
+            // Actualizar el estado
+            cards = cards.map(card => 
+              card.id === flippedCards[0] || card.id === flippedCards[1]
+                ? { ...card, flipped: false }
+                : card
+            );
+            
+            // Actualizar la vista
+            document.querySelector(`.card[data-id="${flippedCards[0]}"]`).classList.remove('flipped');
+            document.querySelector(`.card[data-id="${flippedCards[1]}"]`).classList.remove('flipped');
+            
+            // Reiniciar cartas volteadas
+            flippedCards = [];
+          }, 1500);
+        }
+      }
+    }
+    
+    // Reiniciar juego
+    function resetGame() {
+      initializeGame();
+    }
+    
+    // Event listeners
+    resetButton.addEventListener('click', resetGame);
+    startButton.addEventListener('click', () => {
+      instructionsDialog.classList.add('hidden');
+    });
+    playAgainButton.addEventListener('click', () => {
+      completeDialog.classList.add('hidden');
+      resetGame();
+    });
+    
+    // Inicializar el juego
+    initializeGame();
+  </script>
+</body>
+</html>
